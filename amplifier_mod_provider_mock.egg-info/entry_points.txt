@@ -1,0 +1,2 @@
+[amplifier.modules]
+provider-mock = amplifier_mod_provider_mock:mount

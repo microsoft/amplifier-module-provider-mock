@@ -1,0 +1,10 @@
+LICENSE
+README.md
+pyproject.toml
+amplifier_mod_provider_mock/__init__.py
+amplifier_mod_provider_mock.egg-info/PKG-INFO
+amplifier_mod_provider_mock.egg-info/SOURCES.txt
+amplifier_mod_provider_mock.egg-info/dependency_links.txt
+amplifier_mod_provider_mock.egg-info/entry_points.txt
+amplifier_mod_provider_mock.egg-info/requires.txt
+amplifier_mod_provider_mock.egg-info/top_level.txt
