@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "amplifier-module-provider-mock"
 version = "1.0.0"
-description = "Mock provider for Amplifier testing"
+description = "Reference provider module - Mock provider for Amplifier testing and development"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}

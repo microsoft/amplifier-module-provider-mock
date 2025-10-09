@@ -1,6 +1,6 @@
 # Amplifier Mock Provider Module
 
-Mock LLM provider for testing Amplifier without API calls.
+> **Note**: This is a **reference provider module** for Amplifier. It demonstrates how to implement a provider and is useful for testing and development without API calls.
 
 ## Purpose
 
