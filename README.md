@@ -2,6 +2,21 @@
 
 > **Note**: This is a **reference provider module** for Amplifier. It demonstrates how to implement a provider and is useful for testing and development without API calls.
 
+## Prerequisites
+
+- **Python 3.11+**
+- **[UV](https://github.com/astral-sh/uv)** - Fast Python package manager
+
+### Installing UV
+
+```bash
+# macOS/Linux/WSL
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
 ## Purpose
 
 Provides pre-configured responses for testing and development without calling real LLM APIs.
@@ -10,7 +25,7 @@ Provides pre-configured responses for testing and development without calling re
 
 **Module Type:** Provider
 **Mount Point:** `providers`
-**Entry Point:** `amplifier_mod_provider_mock:mount`
+**Entry Point:** `amplifier_module_provider_mock:mount`
 
 ## Configuration
 
