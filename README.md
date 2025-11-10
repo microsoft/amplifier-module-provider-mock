@@ -38,8 +38,32 @@ config = {
         "Response 1",
         "Response 2",
         "Response 3"
-    ]
+    ],
+    debug = false,      # Enable standard debug events
+    raw_debug = false   # Enable ultra-verbose raw API I/O logging
 }
+```
+
+### Debug Configuration
+
+**Standard Debug** (`debug: true`):
+- Emits `llm:request:debug` and `llm:response:debug` events
+- Contains request/response summaries
+- Useful for testing event flows
+
+**Raw Debug** (`debug: true, raw_debug: true`):
+- Emits `llm:request:raw` and `llm:response:raw` events
+- Contains complete mock request/response objects
+- Useful for testing logging infrastructure
+
+**Example**:
+```yaml
+providers:
+  - module: provider-mock
+    config:
+      debug: true      # Enable debug events
+      raw_debug: true  # Enable raw event capture
+      responses: ["Test response 1", "Test response 2"]
 ```
 
 ## Behavior
