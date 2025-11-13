@@ -48,12 +48,10 @@ class MockProvider:
                 "llm:request:raw",
                 {
                     "lvl": "DEBUG",
-                    "data": {
-                        "provider": "mock",
-                        "messages": messages,
-                        "kwargs": kwargs,
-                        "call_count": self.call_count,
-                    },
+                    "provider": "mock",
+                    "messages": messages,
+                    "kwargs": kwargs,
+                    "call_count": self.call_count,
                 },
             )
 
@@ -79,15 +77,13 @@ class MockProvider:
                 "llm:response:raw",
                 {
                     "lvl": "DEBUG",
-                    "data": {
-                        "provider": "mock",
-                        "response": {
-                            "content": response.content,
-                            "tool_calls": [{"tool": tc.tool, "arguments": tc.arguments} for tc in response.tool_calls]
-                            if response.tool_calls
-                            else None,
-                            "usage": response.usage,
-                        },
+                    "provider": "mock",
+                    "response": {
+                        "content": response.content,
+                        "tool_calls": [{"tool": tc.tool, "arguments": tc.arguments} for tc in response.tool_calls]
+                        if response.tool_calls
+                        else None,
+                        "usage": response.usage,
                     },
                 },
             )
