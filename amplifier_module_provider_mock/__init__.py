@@ -35,10 +35,16 @@ class MockProvider:
 
     name = "mock"
 
-    def __init__(self, config: dict[str, Any], coordinator: ModuleCoordinator | None = None):
+    def __init__(
+        self, config: dict[str, Any], coordinator: ModuleCoordinator | None = None
+    ):
         self.responses = config.get(
             "responses",
-            ["I'll help you with that task.", "Task completed successfully.", "Here's the result of your request."],
+            [
+                "I'll help you with that task.",
+                "Task completed successfully.",
+                "Here's the result of your request.",
+            ],
         )
         self.call_count = 0
         self.coordinator = coordinator
@@ -77,7 +83,12 @@ class MockProvider:
         self.call_count += 1
 
         # RAW DEBUG: Complete mock request (ultra-verbose)
-        if self.coordinator and hasattr(self.coordinator, "hooks") and self.debug and self.raw_debug:
+        if (
+            self.coordinator
+            and hasattr(self.coordinator, "hooks")
+            and self.debug
+            and self.raw_debug
+        ):
             await self.coordinator.hooks.emit(
                 "llm:request:raw",
                 {
@@ -103,7 +114,9 @@ class MockProvider:
         # Simple pattern matching for tool calls
         tool_calls = []
         if "read" in content.lower():
-            tool_calls.append(ToolCall(id="mock_tool_1", name="read", arguments={"path": "test.txt"}))
+            tool_calls.append(
+                ToolCall(id="mock_tool_1", name="read", arguments={"path": "test.txt"})
+            )
 
         # Generate response
         if tool_calls:
@@ -111,17 +124,37 @@ class MockProvider:
             response = ChatResponse(
                 content=[TextBlock(text="I'll read that file for you.")],
                 tool_calls=tool_calls,
-                usage=Usage(input_tokens=10, output_tokens=5, total_tokens=15, reasoning_tokens=0, cache_read_tokens=0, cache_write_tokens=0),
+                usage=Usage(
+                    input_tokens=10,
+                    output_tokens=5,
+                    total_tokens=15,
+                    reasoning_tokens=None,
+                    cache_read_tokens=None,
+                    cache_write_tokens=None,
+                ),
             )
         else:
             # Regular text response
             response_text = self.responses[self.call_count % len(self.responses)]
             response = ChatResponse(
-                content=[TextBlock(text=response_text)], usage=Usage(input_tokens=10, output_tokens=20, total_tokens=30, reasoning_tokens=0, cache_read_tokens=0, cache_write_tokens=0)
+                content=[TextBlock(text=response_text)],
+                usage=Usage(
+                    input_tokens=10,
+                    output_tokens=20,
+                    total_tokens=30,
+                    reasoning_tokens=None,
+                    cache_read_tokens=None,
+                    cache_write_tokens=None,
+                ),
             )
 
         # RAW DEBUG: Complete mock response (ultra-verbose)
-        if self.coordinator and hasattr(self.coordinator, "hooks") and self.debug and self.raw_debug:
+        if (
+            self.coordinator
+            and hasattr(self.coordinator, "hooks")
+            and self.debug
+            and self.raw_debug
+        ):
             await self.coordinator.hooks.emit(
                 "llm:response:raw",
                 {
