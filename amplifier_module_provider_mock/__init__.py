@@ -111,13 +111,13 @@ class MockProvider:
             response = ChatResponse(
                 content=[TextBlock(text="I'll read that file for you.")],
                 tool_calls=tool_calls,
-                usage=Usage(input_tokens=10, output_tokens=5, total_tokens=15),
+                usage=Usage(input_tokens=10, output_tokens=5, total_tokens=15, reasoning_tokens=0, cache_read_tokens=0, cache_write_tokens=0),
             )
         else:
             # Regular text response
             response_text = self.responses[self.call_count % len(self.responses)]
             response = ChatResponse(
-                content=[TextBlock(text=response_text)], usage=Usage(input_tokens=10, output_tokens=20, total_tokens=30)
+                content=[TextBlock(text=response_text)], usage=Usage(input_tokens=10, output_tokens=20, total_tokens=30, reasoning_tokens=0, cache_read_tokens=0, cache_write_tokens=0)
             )
 
         # RAW DEBUG: Complete mock response (ultra-verbose)
