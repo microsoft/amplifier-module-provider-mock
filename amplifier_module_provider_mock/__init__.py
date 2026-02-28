@@ -75,9 +75,6 @@ class MockProvider:
                 max_output_tokens=4096,
                 capabilities=["tools", "testing"],
                 defaults={"temperature": 0.7, "max_tokens": 4096},
-                cost_per_input_token=0.0,
-                cost_per_output_token=0.0,
-                metadata={"cost_tier": "free"},
             ),
         ]
 
