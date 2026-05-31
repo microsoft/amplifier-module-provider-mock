@@ -116,6 +116,9 @@ async def test_plain_text_emits_correct_event_sequence():
             f"Expected {words[i] + ' '!r}, got {p['text']!r}"
         )
         assert p["text"]  # non-empty guard
+        assert p["block_type"] == "text", (
+            f"Plain-text delta must carry block_type='text', got {p.get('block_type')!r}"
+        )
 
     # block_end shape
     end = _events_named(events, "llm:stream_block_end")[0]
@@ -142,10 +145,17 @@ async def test_plain_text_emits_correct_event_sequence():
 
 async def test_thinking_dict_emits_thinking_block_then_text_block():
     """
-    A {"thinking": "...", "text": "..."} entry must emit:
-      block_start(thinking, index=0) -> N thinking_deltas ->
+    A {"thinking": "...", "text": "..."} entry must emit (per contract):
+      block_start(thinking, index=0) ->
+      N block_deltas(block_type="thinking", block_index=0) ->
       block_end(thinking, index=0) ->
-      block_start(text, index=1) -> M text_deltas -> block_end(text, index=1)
+      block_start(text, index=1) ->
+      M block_deltas(block_type="text", block_index=1) ->
+      block_end(text, index=1)
+
+    Contract: ONE delta event (llm:stream_block_delta) for ALL content;
+    block_type on every delta distinguishes thinking from text.
+    llm:stream_thinking_delta is REMOVED from the contract.
     """
     from amplifier_module_provider_mock import MockProvider
 
@@ -166,8 +176,11 @@ async def test_thinking_dict_emits_thinking_block_then_text_block():
     events = coordinator.hooks.events
     names = [e["name"] for e in events]
 
-    # Both delta types present
-    assert "llm:stream_thinking_delta" in names
+    # Contract: llm:stream_thinking_delta must NOT appear; only block_delta
+    assert "llm:stream_thinking_delta" not in names, (
+        "llm:stream_thinking_delta is removed from the contract; "
+        "use llm:stream_block_delta with block_type='thinking'"
+    )
     assert "llm:stream_block_delta" in names
 
     # All stream events share one request_id
@@ -183,21 +196,33 @@ async def test_thinking_dict_emits_thinking_block_then_text_block():
     assert starts[1]["payload"]["block_index"] == 1
     assert starts[1]["payload"]["block_type"] == "text"
 
-    # Thinking deltas: block_index=0, sequences 0..N-1, correct text
-    thinking_deltas = _events_named(events, "llm:stream_thinking_delta")
-    assert len(thinking_deltas) == len(thinking_words)
+    # Thinking deltas: llm:stream_block_delta with block_type="thinking"
+    thinking_deltas = [
+        e for e in _events_named(events, "llm:stream_block_delta")
+        if e["payload"].get("block_type") == "thinking"
+    ]
+    assert len(thinking_deltas) == len(thinking_words), (
+        f"Expected {len(thinking_words)} thinking deltas, got {len(thinking_deltas)}"
+    )
     for i, delta in enumerate(thinking_deltas):
         p = delta["payload"]
         assert p["block_index"] == 0
+        assert p["block_type"] == "thinking"
         assert p["sequence"] == i
         assert p["text"] == thinking_words[i] + " "
 
-    # Text deltas: block_index=1, sequences 0..M-1, correct text
-    text_deltas = _events_named(events, "llm:stream_block_delta")
-    assert len(text_deltas) == len(text_words)
+    # Text deltas: llm:stream_block_delta with block_type="text"
+    text_deltas = [
+        e for e in _events_named(events, "llm:stream_block_delta")
+        if e["payload"].get("block_type") == "text"
+    ]
+    assert len(text_deltas) == len(text_words), (
+        f"Expected {len(text_words)} text deltas, got {len(text_deltas)}"
+    )
     for i, delta in enumerate(text_deltas):
         p = delta["payload"]
         assert p["block_index"] == 1
+        assert p["block_type"] == "text"
         assert p["sequence"] == i
         assert p["text"] == text_words[i] + " "
 

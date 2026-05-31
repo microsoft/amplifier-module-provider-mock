@@ -110,7 +110,7 @@ class MockProvider:
           Emits per the provider streaming contract:
             llm:request
             llm:stream_block_start  (block_type "thinking", index 0, if thinking dict)
-            llm:stream_thinking_delta  x N  (if thinking dict)
+            llm:stream_block_delta(block_type="thinking")  x N  (if thinking dict)
             llm:stream_block_end  (thinking block, if present)
             llm:stream_block_start  (block_type "text")
             llm:stream_block_delta  x M  (one per whitespace-separated word + " ")
@@ -248,10 +248,11 @@ class MockProvider:
                             fragment = word + " "
                             if fragment:  # guard: never emit empty
                                 await _hooks.emit(
-                                    "llm:stream_thinking_delta",
+                                    "llm:stream_block_delta",
                                     {
                                         "request_id": request_id,
                                         "block_index": block_index,
+                                        "block_type": "thinking",
                                         "sequence": seq,
                                         "text": fragment,
                                     },
@@ -285,6 +286,7 @@ class MockProvider:
                                 {
                                     "request_id": request_id,
                                     "block_index": block_index,
+                                    "block_type": "text",
                                     "sequence": seq,
                                     "text": fragment,
                                 },
