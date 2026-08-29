@@ -11,6 +11,7 @@ for the streaming event sequence.
 __amplifier_module_type__ = "provider"
 
 import asyncio
+import difflib
 import logging
 import uuid
 from typing import Any
@@ -27,10 +28,94 @@ from amplifier_core.message_models import Usage
 
 logger = logging.getLogger(__name__)
 
+# Config keys this provider actively reads, plus the two universal keys
+# every allowlist must carry: `priority` (read by the orchestrator's
+# provider-selection logic, not by this module) and `extra_request_params`
+# (app-cli-reserved). Neither is consumed here -- mock makes no real
+# request to merge params into -- but both must never be flagged unknown.
+_KNOWN_CONFIG_KEYS = frozenset(
+    {
+        "responses",
+        "debug",
+        "raw_debug",
+        "use_streaming",
+        "stream_delay_ms",
+        "instance_id",
+        "priority",
+        "extra_request_params",
+    }
+)
+
+
+def _suggest_config_key(key: str) -> str | None:
+    """Best-effort did-you-mean suggestion for an unknown config key.
+
+    Tries substring containment first (catches short/partial keys like
+    `delay` -> `stream_delay_ms`, which difflib's default similarity ratio
+    misses since the strings are quite different lengths), then falls back
+    to difflib's sequence-similarity match for genuine typos.
+    """
+    substring_hits = [
+        known
+        for known in _KNOWN_CONFIG_KEYS
+        if key.lower() in known.lower() or known.lower() in key.lower()
+    ]
+    if substring_hits:
+        return min(substring_hits, key=len)
+    close = difflib.get_close_matches(key, _KNOWN_CONFIG_KEYS, n=1, cutoff=0.5)
+    return close[0] if close else None
+
+
+def _warn_unknown_config_keys(config: dict[str, Any]) -> None:
+    """Warn (never fail) about config keys this provider doesn't recognize,
+    with a did-you-mean suggestion for likely typos or partial names."""
+    for key in config:
+        if key in _KNOWN_CONFIG_KEYS:
+            continue
+        suggestion = _suggest_config_key(key)
+        hint = f" Did you mean '{suggestion}'?" if suggestion else ""
+        logger.warning("[PROVIDER] Unknown config key '%s' is ignored.%s", key, hint)
+
+
+def _coerce_bool(value: Any, *, key: str, default: bool) -> bool:
+    """Coerce a config value to bool, tolerating string forms from wizards.
+
+    Config wizards commonly persist booleans as the strings "true"/"false".
+    ``bool("false")`` evaluates to ``True`` in Python -- this parses the
+    string content instead of relying on Python truthiness.
+    """
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in ("true", "1", "yes"):
+            return True
+        if normalized in ("false", "0", "no"):
+            return False
+        logger.warning(
+            "[PROVIDER] Config key '%s' has unrecognized boolean value %r; "
+            "defaulting to %s.",
+            key,
+            value,
+            default,
+        )
+        return default
+    logger.warning(
+        "[PROVIDER] Config key '%s' has unexpected type %s for a boolean "
+        "value (%r); coercing with bool().",
+        key,
+        type(value).__name__,
+        value,
+    )
+    return bool(value)
+
 
 async def mount(coordinator: ModuleCoordinator, config: dict[str, Any] | None = None):
     """Mount the mock provider."""
     config = config or {}
+    _warn_unknown_config_keys(config)
     provider = MockProvider(config, coordinator)
     await coordinator.mount("providers", provider, name="mock")
     logger.info("Mounted MockProvider")
@@ -70,10 +155,27 @@ class MockProvider:
         )
         self.call_count = 0
         self.coordinator = coordinator
-        self.debug = config.get("debug", False)
-        self.raw_debug = config.get("raw_debug", False)
+        self.debug = _coerce_bool(config.get("debug"), key="debug", default=False)
+        self.raw_debug = _coerce_bool(
+            config.get("raw_debug"), key="raw_debug", default=False
+        )
+        # `raw_debug` alone used to be required (debug AND raw_debug) to
+        # enable raw event emission. `debug: true` now enables it by
+        # itself; `raw_debug` is kept as an accepted alias (with a
+        # heads-up) for anyone still setting it without `debug`.
+        if self.raw_debug and not self.debug:
+            logger.warning(
+                "[PROVIDER] 'raw_debug: true' alone no longer requires "
+                "'debug: true' to also be set -- it now enables raw event "
+                "emission by itself (kept as an alias of 'debug' for "
+                "backwards compatibility). Consider setting 'debug: true' "
+                "directly instead."
+            )
+            self.debug = True
         # Streaming defaults — mirrors the contract's per-provider class default.
-        self.use_streaming = config.get("use_streaming", True)
+        self.use_streaming = _coerce_bool(
+            config.get("use_streaming"), key="use_streaming", default=True
+        )
         self._config = config  # retained for stream_delay_ms
 
     def get_info(self) -> ProviderInfo:
@@ -130,8 +232,9 @@ class MockProvider:
             else None
         )
 
-        # --- RAW DEBUG (ultra-verbose, gated) ---
-        if _hooks and self.debug and self.raw_debug:
+        # --- RAW DEBUG (ultra-verbose, gated on debug ALONE; raw_debug is
+        # now an accepted alias folded into self.debug in __init__) ---
+        if _hooks and self.debug:
             await _hooks.emit(
                 "llm:request:raw",
                 {
@@ -195,7 +298,15 @@ class MockProvider:
             )
         else:
             # --- Text (or thinking+text) path ---
-            response_entry = self.responses[self.call_count % len(self.responses)]
+            # call_count is already incremented (1-indexed "this is call N")
+            # above -- index with (call_count - 1) so the FIRST call returns
+            # responses[0], not responses[1] (off-by-one: the increment at
+            # entry was previously followed by a bare `% len(responses)`
+            # index, which skipped responses[0] on the very first call and
+            # shifted the whole rotation by one for the rest of the run).
+            response_entry = self.responses[
+                (self.call_count - 1) % len(self.responses)
+            ]
             is_thinking = (
                 isinstance(response_entry, dict) and "thinking" in response_entry
             )
@@ -316,8 +427,8 @@ class MockProvider:
                         )
                     raise
 
-        # --- RAW DEBUG response (ultra-verbose, gated) ---
-        if _hooks and self.debug and self.raw_debug:
+        # --- RAW DEBUG response (ultra-verbose, gated on debug ALONE) ---
+        if _hooks and self.debug:
             await _hooks.emit(
                 "llm:response:raw",
                 {

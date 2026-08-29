@@ -29,46 +29,61 @@ Provides pre-configured responses for testing and development without calling re
 
 ## Configuration
 
-```toml
-[[providers]]
-module = "provider-mock"
-name = "mock"
-config = {
-    responses = [
-        "Response 1",
-        "Response 2",
-        "Response 3"
-    ],
-    debug = false,      # Enable standard debug events
-    raw_debug = false   # Enable ultra-verbose raw API I/O logging
-}
+```yaml
+providers:
+  - module: provider-mock
+    name: mock
+    config:
+      responses:
+        - "Response 1"
+        - "Response 2"
+        - "Response 3"
+      debug: false             # Enable raw event emission (see below)
+      use_streaming: true      # Emit llm:stream_* events (default: true)
+      stream_delay_ms: 0       # Delay between streamed word fragments (ms)
 ```
 
-### Debug Configuration
+### All config keys
 
-**Standard Debug** (`debug: true`):
-- Emits `llm:request:debug` and `llm:response:debug` events
-- Contains request/response summaries
-- Useful for testing event flows
+| Key | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `responses` | list | 3 canned strings | Rotated on each call: call N returns `responses[(N-1) % len(responses)]`. Each entry is either a plain string (single text block) or a dict `{"thinking": "...", "text": "..."}` (emits a thinking block at index 0, then a text block at index 1 -- matches the Anthropic extended-thinking contract shape). |
+| `debug` | bool | `false` | Enables raw event emission (see below) |
+| `raw_debug` | bool | `false` | Accepted alias for `debug` (deprecated -- setting `raw_debug` without `debug` now still enables raw events, with a warning suggesting `debug` directly) |
+| `use_streaming` | bool | `true` | Set `false` to force the non-streaming path (only `llm:request`/`llm:response`, no `llm:stream_*` events) |
+| `stream_delay_ms` | int | `0` | Delay in milliseconds between each streamed word fragment -- useful for visually inspecting streaming UIs |
 
-**Raw Debug** (`debug: true, raw_debug: true`):
-- Emits `llm:request:raw` and `llm:response:raw` events
-- Contains complete mock request/response objects
-- Useful for testing logging infrastructure
+Boolean keys accept native `true`/`false` or the string forms a config
+wizard writes (`"true"`/`"false"`). Unrecognized config keys produce a
+mount-time warning with a did-you-mean suggestion (e.g. a stray `delay`
+key suggests `stream_delay_ms`).
+
+This provider has no `ConfigField` wizard prompts and no
+`extra_request_params` -- it makes no real request to merge arbitrary
+params into.
+
+### Debug events
+
+Setting `debug: true` emits `llm:request:raw` and `llm:response:raw` --
+containing the complete mock request/response objects (message counts,
+tool-call info, usage). There is no separate `llm:request:debug`/
+`llm:response:debug` "standard debug" tier in this provider (documented in
+older versions of this README, but never implemented) -- `debug` is a
+single on/off switch for the raw events.
 
 **Example**:
 ```yaml
 providers:
   - module: provider-mock
     config:
-      debug: true      # Enable debug events
-      raw_debug: true  # Enable raw event capture
+      debug: true      # Enable raw event capture
       responses: ["Test response 1", "Test response 2"]
 ```
 
 ## Behavior
 
-- Returns responses from configured list in rotation
+- Returns responses from the configured list in rotation (call 1 ->
+  `responses[0]`, call 2 -> `responses[1]`, ...)
 - Can simulate tool calls when prompt contains "read"
 - No external API calls
 - No authentication required
