@@ -23,6 +23,21 @@ Provides pre-configured responses for testing and development without calling re
 
 ## Contract
 
+### Simulated model catalog
+
+`await provider.list_models()` returns only `mock-model`, an explicit test
+fixture, not a remote service model. `get_model_list_info()` reports
+`source: "simulated"`, never `provider-api`.
+
+The optional `model_filters` config is an immutable snapshot. No-argument calls
+and `filters=None` use it; an explicit mapping replaces it. `filters={}` is
+unfiltered, `filters={"include":[]}` returns no recommendations, and
+`filters={"include":["MOCK*"],"exclude":["mock-model"]}` also returns none.
+Case-insensitive OS-independent globs preserve original IDs; exclusion wins.
+`hide_dated` has the common alias/snapshot meaning but no effect on this one
+undated test ID. Invalid filters raise before listing. Selection does not affect
+the canned-response, tool-call, or streaming simulation.
+
 **Module Type:** Provider
 **Mount Point:** `providers`
 **Entry Point:** `amplifier_module_provider_mock:mount`

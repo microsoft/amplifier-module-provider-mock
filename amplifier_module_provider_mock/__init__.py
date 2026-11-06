@@ -14,7 +14,9 @@ import asyncio
 import difflib
 import logging
 import uuid
+from collections.abc import Mapping
 from typing import Any
+from ._model_listing import ModelFilters, selector_schema
 
 from amplifier_core import ModelInfo
 from amplifier_core import ModuleCoordinator
@@ -43,6 +45,7 @@ _KNOWN_CONFIG_KEYS = frozenset(
         "instance_id",
         "priority",
         "extra_request_params",
+        "model_filters",
     }
 )
 
@@ -145,6 +148,7 @@ class MockProvider:
     def __init__(
         self, config: dict[str, Any], coordinator: ModuleCoordinator | None = None
     ):
+        self._model_filters = ModelFilters.parse(config.get("model_filters", {}))
         self.responses: list[Any] = config.get(
             "responses",
             [
@@ -192,8 +196,25 @@ class MockProvider:
             },
         )
 
-    async def list_models(self) -> list[ModelInfo]:
-        """List available mock models."""
+    def get_model_list_info(self) -> dict[str, Any]:
+        """Describe the local simulation, never a remote model inventory."""
+        return {
+            "version": 1,
+            "source": "simulated",
+            "filters_keyword": "filters",
+            "filters_schema": selector_schema(),
+            "default_filters": self._model_filters.as_dict(),
+            "unfiltered": {},
+            "override": "replace",
+        }
+
+    async def list_models(
+        self, *, filters: Mapping[str, object] | None = None
+    ) -> list[ModelInfo]:
+        """List the explicit test model without contacting a provider."""
+        policy = self._model_filters if filters is None else ModelFilters.parse(filters)
+        if not policy.select(["mock-model"]):
+            return []
         return [
             ModelInfo(
                 id="mock-model",
